@@ -32,7 +32,7 @@ class WrappedFunction:
         raise TypeError(self.msg.replace("%s", self.func.__name__))
 
 
-def macro_function(func):
+def macro_function_wrapper(func):
     """Wraps a function, to provide nicer error-messages in the common
     case where the macro is imported but macro-expansion isn't triggered."""
     return WrappedFunction(
@@ -250,7 +250,7 @@ class Macros:
         # Different kinds of macros
         self.macro_registries = []
         for cls in self.macro_types:
-            self.add_macro_type(cls, macro_function)
+            self.add_macro_type(cls, macro_function_wrapper)
 
         self.expose_unhygienic = Macros.Registry()
 
