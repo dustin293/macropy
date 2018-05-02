@@ -42,6 +42,7 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.doctest',
     'sphinx.ext.extlinks',
+    'macropy.sphinx.macro_domain',
 ]
 
 gitter = 'lihaoyi'
@@ -173,3 +174,7 @@ texinfo_documents = [
 
 
 # -- Extension configuration -------------------------------------------------
+
+autodoc_default_flags = ['members', 'show-inheritance']
+autodoc_mock_imports = ['sqlalchemy', 'pyxl']
+autodoc_member_order = 'groupwise'

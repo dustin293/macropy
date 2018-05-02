@@ -16,7 +16,7 @@ Welcome to MacroPy3's documentation!
    experimental
    discussion
    reference
-
+   api/index
 
 MacroPy3 is a port of the original MacroPy to Python 3. If you look for
 the Python 2 version see the `python2 branch`__.
