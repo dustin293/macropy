@@ -28,6 +28,9 @@ def unquote_search(tree, **kw):
 
 @macros.expr
 def q(tree, **kw):
+    """Quasiquote macro, used to lift sections of code into their AST
+    representation which can be manipulated at runtime. Used together with
+    the `u`, `name`, `ast_literal`, `ast_list` unquotes."""
     tree = unquote_search.recurse(tree)
     # print('Quote expr after search %s' % ast.dump(tree)
     #       if isinstance(tree, ast.AST) else tree, file=sys.stderr)
