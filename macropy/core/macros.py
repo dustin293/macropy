@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""The main source of all things MacroPy"""
+"""The main source of all things MacroPy."""
 
 from abc import ABC, abstractmethod
 import ast
@@ -10,7 +10,6 @@ import inspect
 import logging
 
 from . import compat, real_repr, Captured, Literal
-
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +56,9 @@ def macro_stub(func):
 MacroData = collections.namedtuple('MacroData', ['macro', 'macro_tree',
                                                  'body_tree', 'call_args',
                                                  'kwargs', 'name'])
+
+MacroData.__doc__ = """
+Contains a macro's detailed informations needed to expand it."""
 
 
 class MacroType(ABC):
@@ -211,6 +213,7 @@ class Macros:
     """A registry of macros belonging to a module; used via
 
     .. code:: python
+
       macros = Macros()
 
       @macros.expr
@@ -275,9 +278,7 @@ post_processing = []
 
 
 def preserve_line_numbers(tree, new_tree):
-    """Decorates a tree-transformer function to stick the original line
-    numbers onto the transformed tree.
-    """
+    """Stick the original line numbers onto the transformed tree."""
     pos = ((tree.lineno, tree.col_offset)
            if (hasattr(tree, "lineno") and
                hasattr(tree, "col_offset"))

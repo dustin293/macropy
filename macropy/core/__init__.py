@@ -9,20 +9,20 @@ This file itself contains the basic operations necessary to transform between
 code in various forms: Source, ASTs, and Values. These operations wrap more
 primitive forms (e.g. in the ast module) which should not be used directly.
 
-This map maps out how to convert from form to form:
+This map maps out how to convert from form to form::
 
-                     parse_stmt
-       ____________  parse_expr  ____________
-      |            |----------->|            |
-      |   Source   |            |    AST     |
-      |____________|<-----------|____________|
-          ^     |      unparse    |        ^
-          |     |     exact_src   | eval   | ast_repr
-          |     |                 |        |
-real_repr |     |    eval        _v________|_
-          |     --------------->|            |
-          |                     |   Value    |
-          ----------------------|____________|
+                      parse_stmt
+        ____________  parse_expr  ____________
+       |            |----------->|            |
+       |   Source   |            |    AST     |
+       |____________|<-----------|____________|
+           ^     |      unparse    |        ^
+           |     |     exact_src   | eval   | ast_repr
+           |     |                 |        |
+ real_repr |     |    eval        _v________|_
+           |     --------------->|            |
+           |                     |   Value    |
+           ----------------------|____________|
 """
 
 import ast
@@ -38,7 +38,7 @@ __all__ = ['Literal', 'Captured', 'ast_repr', 'parse_expr', 'parse_stmt',
 
 class Literal(object):
     """Used to wrap sections of an AST which must remain intact when
-    `ast_repr`ed or `real_repr`ed."""
+    ``ast_repr`` ed or ``real_repr`` ed."""
     def __init__(self, body):
         self.body = body
 
@@ -47,6 +47,7 @@ class Literal(object):
 
 
 class Captured(object):
+    """An helper class to mark capures symbols in an AST tree."""
     def __init__(self, val, name):
         self.val = val
         self.name = name
@@ -86,19 +87,27 @@ def ast_repr(x):
     raise Exception("Don't know how to ast_repr this: ", x)
 
 
-def parse_expr(x):
-    """Parses a string into an `expr` AST"""
-    return ast.parse(x).body[0].value
+def parse_expr(expr_string):
+    """Parses a string into an `expr` AST.
+
+    :param str expr_string: a string containing the expression to parsers
+    :returns: an ``ast.Expr`` node containing the expression tree
+    """
+    return ast.parse(expr_string).body[0].value
 
 
-def parse_stmt(x):
-    """Parses a string into an `stmt` AST"""
-    return ast.parse(x).body
+def parse_stmt(code_string):
+    """Parses a string into an `stmt` AST.
+
+    :param str code_string: a string containing the expression to parsers
+    :returns: a list containing the parsed statements as AST nodes
+    """
+    return ast.parse(code_string).body
 
 
 def real_repr(thing):
     """Converts the given value into a string which when evaluated will
-    return the value. This one is smart enough to take care of ASTs"""
+    return the value. This one is smart enough to take care of ASTs."""
     if isinstance(thing, ast.AST):
         fields = [real_repr(b) for a, b in ast.iter_fields(thing)]
         return '%s(%s)' % (thing.__class__.__name__, ', '.join(fields))
