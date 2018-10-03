@@ -36,7 +36,7 @@ __all__ = ['Literal', 'Captured', 'ast_repr', 'parse_expr', 'parse_stmt',
            'real_repr', 'unparse']
 
 
-class Literal(object):
+class Literal:
     """Used to wrap sections of an AST which must remain intact when
     `ast_repr`ed or `real_repr`ed."""
     def __init__(self, body):
@@ -46,7 +46,8 @@ class Literal(object):
         return unparse(self.body)
 
 
-class Captured(object):
+class Captured:
+    """An helper class to mark capures symbols in an AST tree."""
     def __init__(self, val, name):
         self.val = val
         self.name = name
