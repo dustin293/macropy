@@ -28,7 +28,7 @@ class WrappedFunction:
         return self.func(*args, **kwargs)
 
     def __getitem__(self, i):
-        raise TypeError(self.msg.replace("%s", self.func.__name__))
+        raise TypeError(self.msg.format(self.func.__name__))
 
 
 def macro_function_wrapper(func):
@@ -36,8 +36,8 @@ def macro_function_wrapper(func):
     case where the macro is imported but macro-expansion isn't triggered."""
     return WrappedFunction(
         func,
-        "Macro `%s` illegally invoked at runtime; did you import it "
-        "properly using `from ... import macros, %s`?"
+        "Macro `{0}` illegally invoked at runtime; did you import it "
+        "properly using `from ... import macros, {0}`?"
     )
 
 
@@ -48,7 +48,7 @@ def macro_stub(func):
 
     return WrappedFunction(
         func,
-        "Stub `%s` illegally invoked at runtime; is it used "
+        "Stub `{0}` illegally invoked at runtime; is it used "
         "properly within a macro?"
     )
 
