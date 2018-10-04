@@ -91,6 +91,7 @@ forms just to see what you're getting:
 .. code:: python
 
   # macro_module.py
+  from macropy.core import real_repr, unparse
   from macropy.core.macros import Macros
 
   macros = Macros()
@@ -128,6 +129,8 @@ with a new tree, for example:
 .. code:: python
 
   # macro_module.py
+  from ast import Num
+
   from macropy.core.macros import Macros
 
   macros = Macros()
@@ -144,6 +147,8 @@ with the square of itself:
 .. code:: python
 
   # macro_module.py
+  from ast import BinOp, Mult
+
   from macropy.core.macros import Macros
 
   macros = Macros()
@@ -171,6 +176,8 @@ useful. Doing so manually is quite a pain:
 .. code:: python
 
   # macro_module.py
+  from ast import Add, BinOp, Lambda, Load, Mult, Name, Num, Param, arguments
+
   from macropy.core.macros import Macros
 
   macros = Macros()
@@ -246,7 +253,7 @@ This will insert the a literal representing the value of ``addition``
 into the position of the ``u[addition]``, in this case ``10``. This *also*
 prints 25. For a more detailed description of how quoting and
 unquoting works, and what more you can do with it, check out the
-documentation for [Quaasiquotes <#quasiquotes>`_.
+documentation for `quasiquotes`:ref:.
 
 Apart from using the ``u`` and ``ast_literal`` unquotes to put things
 into the AST, good old fashioned assignment works too:
