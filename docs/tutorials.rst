@@ -10,6 +10,7 @@ macros using MacroPy:
    :maxdepth: 2
    :caption: Contents:
 
+   ast
    first_macro
    hygienic_macro
    export_code
