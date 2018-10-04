@@ -8,10 +8,21 @@ import functools
 import importlib
 import inspect
 import logging
+import sys
 
 from . import compat, real_repr, Captured, Literal
 
 logger = logging.getLogger(__name__)
+
+"""Contains the current running expansion contexes."""
+EXPANSION_CONTEXES = []
+
+
+def get_current_context():
+    """Returns the current expansion context."""
+    if len(EXPANSION_CONTEXES):
+        return EXPANSION_CONTEXES[-1]
+    return None
 
 
 class WrappedFunction:
@@ -31,10 +42,17 @@ class WrappedFunction:
         raise TypeError(self.msg.format(self.func.__name__))
 
 
+class WrappedMacro(WrappedFunction):
+
+    def transform(self, tree, *args, **kwargs):
+        ex_ctx = get_current_context()
+        return ex_ctx.expand_macro(self.func, tree, *args, **kwargs)
+
+
 def macro_function_wrapper(func):
     """Wraps a function, to provide nicer error-messages in the common
     case where the macro is imported but macro-expansion isn't triggered."""
-    return WrappedFunction(
+    return WrappedMacro(
         func,
         "Macro `{0}` illegally invoked at runtime; did you import it "
         "properly using `from ... import macros, {0}`?"
@@ -362,6 +380,47 @@ class ExpansionContext:
             self.file_vars = parent.file_vars
             self.macro_types = parent.macro_types
 
+    def create_std_tree_expand_generator(self, tree):
+        """Create the standard tree expansion generator, one that will employ
+        `macro_expand`:meth: to expand the given tree. Used by
+        `walk_tree`:meth:.
+
+        :returns: a generator that will look up macros in the given tree or
+           ``None``
+        """
+        if (isinstance(tree, ast.AST) or type(tree) is Literal or
+            type(tree) is Captured):  # noqa: #E129
+            return self.macro_expand(tree)
+
+    def create_single_macro_expand_generator(self, mfunc, *args, **kwargs):
+        """The purpose is the same of `create_std_tree_expand_generator`:meth:,
+        but this one is tailored to accept a macro function with some parameters
+        to generate a closure that will then be called by `walk_trre`:meth: with
+        the tree to operate on."""
+        def gen_macro_expand_single(tree):
+            return self.macro_expand_single(MacroData(
+                (mfunc, sys.modules[mfunc.__module__]),
+                tree, tree, args, kwargs, mfunc.__name__))
+        return gen_macro_expand_single
+
+    def expand_macro(self, mfunc, tree=None, *args, **kwargs):
+        """Expand a single macro function.
+
+        :param mfunc: a function whose purpose is to alter an AST tree
+        :param tree: an AST tree
+        :returns: an AST tree
+        """
+        try:
+            EXPANSION_CONTEXES.append(self)
+            if tree is None:
+                tree = self.tree
+            gen_creator = self.create_single_macro_expand_generator(
+                mfunc, *args, **kwargs)
+
+            return self.walk_tree(tree, fcreate_expand_gen=gen_creator)
+        finally:
+            EXPANSION_CONTEXES.pop()
+
     def expand_macros(self, tree=None):
         """Basic expansion function, It just calls `~.walk_tree`:meth: with
         the ``tree`` passed in at instantiation time if it's not passed as
@@ -370,9 +429,13 @@ class ExpansionContext:
         :param tree: an AST tree
         :returns: an AST tree
         """
-        if tree is None:
-            tree = self.tree
-        return self.walk_tree(tree)
+        try:
+            EXPANSION_CONTEXES.append(self)
+            if tree is None:
+                tree = self.tree
+            return self.walk_tree(tree)
+        finally:
+            EXPANSION_CONTEXES.pop()
 
     def macro_expand(self, tree):
         """This is a coroutine that expands found macros, and yields back
@@ -385,72 +448,25 @@ class ExpansionContext:
         found_macro = False
         # for every macro type
         for mtype in self.macro_types:
-            new_tree = None
             # its ``detect_macro()`` is a coro, start a pull/send cycle
-            type_it = mtype.detect_macro(tree)
+            type_gen = mtype.detect_macro(tree)
             try:
                 # each coro will yield a MacroData instance until
                 # exhausted, in which case it will raise a
                 # StopIteration with a possible final ``.value`` member
                 while True:
-                    mdata = type_it.send(new_tree)
+                    mdata = type_gen.send(new_tree)
+                    new_tree = None
                     logger.debug("Found macro %r, type %r, line %d",
                                  mdata.name, mtype.__class__.__name__,
                                  mdata.macro_tree.lineno)
                     found_macro = True
-                    mfunc, mmod = mdata.macro
-                    # if the macro function is itself a coro, give  it
-                    # control about when expand its body, if before or
-                    # after its own expansion, it's similar in spirit
-                    # to ``contextlib.contexmanager()`` decorator
-                    if inspect.isgeneratorfunction(mfunc):
-                        new_tree = mdata.body_tree
-                    else:
-                        # if not yield it for a pre-execution walking
-                        new_tree = yield mdata.body_tree
+                    expand_single_gen = self.macro_expand_single(mdata)
                     try:
-                        new_tree = mfunc(
-                            tree=new_tree,
-                            args=mdata.call_args,
-                            src=self.src,
-                            expand_macros=self.expand_macros,
-                            **dict(tuple(mdata.kwargs.items()) +
-                                   tuple(self.file_vars.items()))
-                        )
-                        # the result is a generator, treat it like a
-                        # context manager
-                        if inspect.isgenerator(new_tree):
-                            m_it = new_tree
-                            new_tree = None
-                            try:
-                                while True:
-                                    new_tree = yield m_it.send(new_tree)
-                            except StopIteration as final:
-                                if final.value is not None:
-                                    new_tree = final.value
-                    except Exception as e:
-                        # here this exception is raised during macro
-                        # expansion, at import time. If we come here,
-                        # it means that the macro expanded to "raise
-                        # Exception()" or something like that. This
-                        # will be fixed in the failure filter, see
-                        # failure.py
-                        new_tree = e
-
-                    # apply the filters
-                    for function in reversed(filters):
-                        new_tree = function(
-                            tree=new_tree,
-                            args=mdata.call_args,
-                            src=self.src,
-                            expand_macros=self.expand_macros,
-                            lineno=mdata.macro_tree.lineno,
-                            col_offset=mdata.macro_tree.col_offset,
-                            **dict(tuple(mdata.kwargs.items()) +
-                                   tuple(self.file_vars.items()))
-                        )
-                    # yield it for one more walking
-                    new_tree = yield new_tree
+                        while True:
+                            new_tree = yield expand_single_gen.send(new_tree)
+                    except StopIteration:
+                        pass
             except StopIteration as final:
                 # if the ``detect_macro()`` function returns a final
                 # value, take it and ext as well, if it has found at
@@ -460,6 +476,66 @@ class ExpansionContext:
                 if found_macro:
                     break
         return new_tree
+
+    def macro_expand_single(self, macro_data):
+        """A generator function that will take care of expanding one macro
+        invocation.
+
+        :param macro_data: An instance of `MacroData`:class:
+        """
+        mfunc, mmod = macro_data.macro
+        # if the macro function is itself a coro, give  it
+        # control about when expand its body, if before or
+        # after its own expansion, it's similar in spirit
+        # to ``contextlib.contexmanager()`` decorator
+        if inspect.isgeneratorfunction(mfunc):
+            new_tree = macro_data.body_tree
+        else:
+            # if not yield it for a pre-execution walking
+            new_tree = yield macro_data.body_tree
+        try:
+            new_tree = mfunc(
+                tree=new_tree,
+                args=macro_data.call_args,
+                src=self.src,
+                expand_macros=self.expand_macros,
+                **dict(tuple(macro_data.kwargs.items()) +
+                       tuple(self.file_vars.items()))
+            )
+            # the result is a generator, treat it like a
+            # context manager
+            if inspect.isgenerator(new_tree):
+                m_gen = new_tree
+                new_tree = None
+                try:
+                    while True:
+                        new_tree = yield m_gen.send(new_tree)
+                except StopIteration as final:
+                    if final.value is not None:
+                        new_tree = final.value
+        except Exception as e:
+            # here this exception is raised during macro
+            # expansion, at import time. If we come here,
+            # it means that the macro expanded to "raise
+            # Exception()" or something like that. This
+            # will be fixed in the failure filter, see
+            # failure.py
+            new_tree = e
+
+        # apply the filters
+        for function in reversed(filters):
+            new_tree = function(
+                tree=new_tree,
+                args=macro_data.call_args,
+                src=self.src,
+                expand_macros=self.expand_macros,
+                lineno=macro_data.macro_tree.lineno,
+                col_offset=macro_data.macro_tree.col_offset,
+                **dict(tuple(macro_data.kwargs.items()) +
+                       tuple(self.file_vars.items()))
+            )
+        # yield it for one more walking
+        new_tree = yield new_tree
 
     def walk_children(self, tree):
         """Walks each field of an AST instance or a list containing AST
@@ -483,7 +559,7 @@ class ExpansionContext:
                     new_tree.append(new_t)
             tree[:] = new_tree
 
-    def walk_tree(self, tree):
+    def walk_tree(self, tree, fcreate_expand_gen=None):
         """Calls `~.macro_expand`:meth: and walks each tree yielded by it,
         one time **before** the transformation and one time **after**
         it.
@@ -491,13 +567,14 @@ class ExpansionContext:
         :param tree: an AST tree
         :returns: an AST tree
         """
-        if (isinstance(tree, ast.AST) or type(tree) is Literal or
-            type(tree) is Captured):  # noqa: #E129
-            expand_it = self.macro_expand(tree)
+        if fcreate_expand_gen is None:
+            fcreate_expand_gen = self.create_std_tree_expand_generator
+        expand_gen = fcreate_expand_gen(tree)
+        if expand_gen is not None:
             new_tree = None
             try:
                 while True:
-                    new_tree = self.walk_tree(expand_it.send(new_tree))
+                    new_tree = self.walk_tree(expand_gen.send(new_tree))
             except StopIteration as final:
                 # accept the return value from ``macro_expand`` only
                 # if at least one macro was found

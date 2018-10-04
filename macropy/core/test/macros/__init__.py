@@ -83,3 +83,7 @@ class Tests(unittest.TestCase):
         assert aliases.run_aliased() == "wtf"
         with self.assertRaises(Exception):
             aliases.run_ignored()
+
+    def test_macro_expand_single(self):
+        from . import macro_expand_single as mes
+        assert mes.run() == 10
