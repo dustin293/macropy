@@ -58,7 +58,16 @@ MacroData = collections.namedtuple('MacroData', ['macro', 'macro_tree',
                                                  'kwargs', 'name'])
 
 MacroData.__doc__ = """
-Contains a macro's detailed informations needed to expand it."""
+Contains a macro's detailed informations needed to expand it.
+
+:param macro: a tuple of ``(macro_function, macro_module)``
+:param macro_tree: an AST tree of the macro invocation
+:param body_tree: a subtree of *macro_tree* containing the main
+  argument to the macro function invocation
+:call_args: arguments to the macro invocation or ``None``
+:kwargs: additional keyword args for the macro invocation or ``{}``
+:name: optional name of the macro
+"""
 
 
 class MacroType(ABC):
@@ -73,6 +82,16 @@ class MacroType(ABC):
         self.registry = registry
 
     def get_macro_details(self, macro_tree):
+        """Given an AST tree of a macro, returns detailed informations about it.
+
+        :param macro_tree: an AST tree
+        :returns: A tuple containing tree elements:
+          - the name of the macro;
+          - the tree containing the macro itself (it is *macro_tree*
+            itself as of now);
+          - the arguments to the macro invocation.
+
+        """
         if isinstance(macro_tree, ast.Call):
             call_args = tuple(macro_tree.args)
             macro_tree = macro_tree.func
