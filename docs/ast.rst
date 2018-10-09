@@ -190,6 +190,7 @@ Instead, using a ``list``:
 
 .. code:: python
 
+  >>> ass = ast.Assign(targets=[ast.Name(ctx=ast.Store(), id='x')], value=ast.Num(n=10))
   >>> mod = ast.fix_missing_locations(ast.Module(body=[ass]))
   >>> compile(mod, '<string>', 'exec')
   <code object <module> at 0x7f85c3d88540, file "<string>", line 1>

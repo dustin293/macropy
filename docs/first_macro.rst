@@ -229,7 +229,7 @@ the ``q[...]`` syntax means that the section following it is quoted as
 an AST, while the unquote ``ast_literal[...]`` syntax means to place
 the *value* of ``tree`` into that part of the quoted AST, rather than
 simply the node ``Name("tree")``. Running ``run.py``, this also prints
-``25``. See [docs/examples/quasiquote <docs/examples/quasiquote>`_ for
+``25``. See `docs/examples/quasiquote <docs/examples/quasiquote>`_ for
 the self-contained code for this example.
 
 Another unquote ``u`` allow us to dynamically include the value ``10``
