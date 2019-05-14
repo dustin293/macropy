@@ -1,0 +1,5 @@
+-e ./[pinq,pyxl]
+jedi
+yapf
+black
+autopep8
