@@ -4,6 +4,7 @@ import unittest
 
 import macropy.core
 
+from macropy.core import compat
 from macropy.core.walkers import Walker
 from macropy.core.analysis import Scoped, extract_arg_names
 
@@ -31,14 +32,24 @@ class Tests(unittest.TestCase):
         arg_names = extract_arg_names(args)
         convert_dict = lambda d: dict((k,v) if isinstance(v, str)
                                       else (k, dump(v)) for k, v in d.items())
-        self.assertEqual(convert_dict({
-            'a': "arg(arg='a', annotation=None)",
-            'b': "arg(arg='b', annotation=None)",
-            'c': "arg(arg='c', annotation=None)",
-            'd': "arg(arg='d', annotation=None)",
-            'e': "arg(arg='e', annotation=None)",
-            'f': "arg(arg='f', annotation=None)"
-        }), convert_dict(arg_names))
+        if compat.PY38:
+            test_d = {
+                'a': "arg(arg='a', annotation=None, type_comment=None)",
+                'b': "arg(arg='b', annotation=None, type_comment=None)",
+                'c': "arg(arg='c', annotation=None, type_comment=None)",
+                'd': "arg(arg='d', annotation=None, type_comment=None)",
+                'e': "arg(arg='e', annotation=None, type_comment=None)",
+                'f': "arg(arg='f', annotation=None, type_comment=None)"}
+        else:
+            test_d = {
+                'a': "arg(arg='a', annotation=None)",
+                'b': "arg(arg='b', annotation=None)",
+                'c': "arg(arg='c', annotation=None)",
+                'd': "arg(arg='d', annotation=None)",
+                'e': "arg(arg='e', annotation=None)",
+                'f': "arg(arg='f', annotation=None)"}
+
+        self.assertEqual(convert_dict(test_d), convert_dict(arg_names))
 
     def test_simple_expr(self):
         tree = macropy.core.parse_expr("(lambda x: a)")

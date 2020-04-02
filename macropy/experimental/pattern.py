@@ -3,7 +3,7 @@ from abc import ABCMeta, abstractmethod
 import ast
 import inspect
 
-from ..core import util
+from ..core import util, compat
 from ..core.macros import Macros
 from ..core.walkers import Walker
 
@@ -262,12 +262,12 @@ class OptionalMatcher(Matcher):
 
 
 def build_matcher(tree, modified):
-    if isinstance(tree, ast.Num):
-        return hq[LiteralMatcher(u[tree.n])]
-    if isinstance(tree, ast.Str):
-        return hq[LiteralMatcher(u[tree.s])]
-    if isinstance(tree, ast.NameConstant):
-        return hq[LiteralMatcher(ast_literal[tree])]
+    if compat.is_ast_num(tree):
+        return hq[LiteralMatcher(u[compat.get_ast_const(tree)])]
+    if compat.is_ast_str(tree):
+        return hq[LiteralMatcher(u[compat.get_ast_const(tree)])]
+    if compat.is_ast_nameconst(tree):
+        return hq[LiteralMatcher(ast_literal[compat.get_ast_const(tree)])]
     if isinstance(tree, ast.Name):
         if tree.id in ['_']:
             return hq[WildcardMatcher()]

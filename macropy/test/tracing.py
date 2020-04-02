@@ -2,8 +2,11 @@ import ast
 import unittest
 
 from macropy.tracing import macros, trace, log, require, show_expanded
+from macropy.core import compat
 from macropy.core.quotes import macros, q
+
 result = []
+
 
 def log(x):
     result.append(x)
@@ -91,9 +94,12 @@ class Tests(unittest.TestCase):
 
         from macropy.core import ast_repr
         show_expanded[q[1 + 2]]
-
-        assert ("ast.BinOp(left=ast.Num(n=1), op=ast.Add(), "
-                "right=ast.Num(n=2))" in result[-1])
+        if compat.PY38:
+            assert ("ast.BinOp(left=ast.Constant(value=1, kind=None), op=ast.Add(), "
+                    "right=ast.Constant(value=2, kind=None))" in result[-1])
+        else:
+            assert ("ast.BinOp(left=ast.Num(n=1), op=ast.Add(), "
+                    "right=ast.Num(n=2))" in result[-1])
 
         with show_expanded:
             a = 1

@@ -24,7 +24,7 @@ def indexer(tree, collect, **kw):
         # print('Indexer: %s' % ast.dump(tree), file=sys.stderr)
         unparse(tree)
         collect((tree.lineno, tree.col_offset))
-    except (AttributeError, KeyError) as e:
+    except (AttributeError, KeyError):
         # If this handler gets executed it's because unparse() has
         # failed (it's being used as a poor man's syntax
         # checker). It's important to remember that unparse cannot
@@ -75,8 +75,7 @@ def exact_src(tree, src, **kw):
                 parsed = ast.parse(x)
                 if unparse(parsed).strip() == unparse(tree).strip():
                     return prelim
-
-            except SyntaxError as e:
+            except SyntaxError:
                 pass
         raise ExactSrcException()
 

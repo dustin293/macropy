@@ -58,11 +58,17 @@ def ast_repr(x):
     evaluated will return the given value."""
     tx = type(x)
     if tx in (int, float):
-        return ast.Num(n=x)
+        if compat.PY38:
+            return ast.Constant(value=x)
+        else:
+            return ast.Num(n=x)
     elif tx is bytes:
         return ast.Bytes(s=x)
     elif isinstance(x, str):
-        return ast.Str(s=x)
+        if compat.PY38:
+            return ast.Constant(value=x)
+        else:
+            return ast.Str(s=x)
     elif tx is list:
         return ast.List(elts=list(map(ast_repr, x)))
     elif tx is dict:
@@ -75,7 +81,10 @@ def ast_repr(x):
     elif tx is Captured:
         return compat.Call(ast.Name(id="Captured"), [x.val, ast_repr(x.name)], [])
     elif tx in (bool, type(None)):
-        return ast.NameConstant(value=x)
+        if compat.PY38:
+            return ast.Constant(value=x)
+        else:
+            return ast.NameConstant(value=x)
     elif isinstance(x, ast.AST):
         fields = [ast.keyword(a, ast_repr(b)) for a, b in ast.iter_fields(x)]
         # This hard-codes an expectation that ast classes will be
@@ -246,7 +255,7 @@ trec = {
     ast.UnaryOp:    lambda tree, i: ("(" + unop[tree.op.__class__] +
                                      ("(" + rec(tree.operand, i) + ")"
                                       if (type(tree.op) is ast.USub and
-                                          type(tree.operand) is ast.Num)
+                                          compat.is_ast_num(tree.operand))
                                       else " " + rec(tree.operand, i)) +
                                      ")"),
 
@@ -263,8 +272,9 @@ trec = {
                                                 tree.values) +
                                      ")"),
     ast.Attribute:  lambda tree, i: (rec(tree.value, i) +
-                                     (" " if (isinstance(tree.value, ast.Num) and
-                                              isinstance(tree.value.n, int))
+                                     (" " if (compat.is_ast_num(tree.value) and
+                                              isinstance(
+                                                compat.get_ast_const(tree.value), int))
                                       else "") + "." + tree.attr),
     ast.Subscript:  lambda tree, i: (rec(tree.value, i) + "[" +
                                      rec(tree.slice, i) + "]"),
@@ -401,7 +411,8 @@ if compat.PY36:
                                         else "") + " for " + rec(tree.target, i) +
                                        " in " + rec(tree.iter, i) +
                                        jmap("", lambda x: " if " + rec(x, i),
-                                            tree.ifs))
+                                            tree.ifs)),
+        ast.Constant: lambda tree, i: _format_constant(tree, i),
     })
 
 if compat.HAS_FSTRING:
@@ -412,6 +423,15 @@ if compat.HAS_FSTRING:
                                         ((":" + tree.format_spec.values[0].s)
                                          if tree.format_spec else "") +
                                         "}"),
+    })
+if compat.HAS_FSTRING and compat.PY38:
+    trec.update({
+        ast.JoinedStr: lambda tree, i: "f" + repr("".join(v.value
+            if compat.is_ast_str(v) else rec(v, i) for v in tree.values))
+    })
+
+if compat.HAS_FSTRING and not compat.PY38:
+    trec.update({
         ast.JoinedStr: lambda tree, i: "f" + repr("".join(v.s
             if isinstance(v, ast.Str) else rec(v, i) for v in tree.values))
     })
@@ -470,3 +490,15 @@ def _ast_leftovers():
                  if v not in cmpops
                  if v not in boolops}
     return remainder
+
+
+def _format_constant(const, i):
+    if compat.is_ast_nameconst(const):
+        return str(const.value)
+    elif compat.is_ast_num(const):
+        return (lambda repr_n:
+                ("(" + repr_n.replace("inf", INFSTR) +
+                 ")" if repr_n.startswith("-")
+                 else repr_n.replace("inf", INFSTR)))(repr(const.value))
+    elif compat.is_ast_str(const):
+        return repr(const.value)

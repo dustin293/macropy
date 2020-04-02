@@ -6,6 +6,7 @@ import macropy.core
 import macropy.core.macros
 import macropy.core.walkers
 
+from macropy.core import compat
 from macropy.core.quotes import ast_literal, u
 from macropy.core.hquotes import macros, hq, unhygienic
 
@@ -27,10 +28,8 @@ def literal_eval(node_or_string):
         node_or_string = node_or_string.body
 
     def _convert(node):
-        if isinstance(node, ast.Str):
-            return node.s
-        elif isinstance(node, ast.Num):
-            return node.n
+        if compat.is_ast_str(node) or compat.is_ast_num(node):
+            return compat.get_ast_const(node)
         elif isinstance(node, ast.Tuple):
             return tuple(map(_convert, node.elts))
         elif isinstance(node, ast.List):
@@ -43,12 +42,12 @@ def literal_eval(node_or_string):
                 return _safe_names[node.id]
         elif (isinstance(node, ast.BinOp) and
               isinstance(node.op, (ast.Add, ast.Sub)) and
-              isinstance(node.right, ast.Num) and
-              isinstance(node.right.n, complex) and
-              isinstance(node.left, ast.Num) and
-              isinstance(node.left.n, (int, float))):  # TODO: long,
-            left = node.left.n
-            right = node.right.n
+              compat.is_ast_num(node.right) and
+              isinstance(compat.get_ast_const(node.right), complex) and
+              compat.is_ast_num(node.left) and
+              isinstance(compat.get_ast_const(node.left), (int, float))):  # TODO: long,
+            left = compat.get_ast_const(node.left)
+            right = compat.get_ast_const(node.right)
             if isinstance(node.op, ast.Add):
                 return left + right
             else:

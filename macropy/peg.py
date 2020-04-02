@@ -9,7 +9,7 @@ import macropy.core.macros
 import macropy.core.util
 import macropy.core.walkers
 
-from macropy.core import ast_repr, Captured   # noqa: F401
+from macropy.core import ast_repr, Captured, compat   # noqa: F401
 from macropy.core.hquotes import macros, hq, u, ast_literal
 from macropy.quick_lambda import macros, f  # noqa: F811
 from macropy.case_classes import macros, case  # noqa: F811
@@ -59,7 +59,7 @@ def peg(tree, gen_sym, **kw):
 def process(tree, potential_targets, gen_sym):  # noqa: F811
     @macropy.core.walkers.Walker
     def PegWalker(tree, stop, collect, **kw):
-        if type(tree) is ast.Str:
+        if compat.is_ast_str(tree):
             stop()
             return hq[Parser.Raw(ast_literal[tree])]
         if type(tree) is ast.Name and tree.id in potential_targets:
