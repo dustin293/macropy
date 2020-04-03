@@ -267,7 +267,7 @@ def build_matcher(tree, modified):
     if compat.is_ast_str(tree):
         return hq[LiteralMatcher(u[compat.get_ast_const(tree)])]
     if compat.is_ast_nameconst(tree):
-        return hq[LiteralMatcher(ast_literal[compat.get_ast_const(tree)])]
+        return hq[LiteralMatcher(ast_literal[tree])]
     if isinstance(tree, ast.Name):
         if tree.id in ['_']:
             return hq[WildcardMatcher()]
