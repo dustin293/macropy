@@ -17,6 +17,8 @@ macros = Macros()
 @walkers.Walker
 def unquote_search(tree, **kw):
     "Get the values from the helper stubs."
+    if type(tree) == ast.Expr and type(tree.value) == ast.Subscript:
+        tree = tree.value
     res = check_annotated(tree)  # returns something if tree == 'foo[...]'
     if res:
         func, right = res
